@@ -1,0 +1,43 @@
+{
+  "name": "chunks-transfer",
+  "version": "1.0.0",
+  "description": "Create chunks from a string or buffer for wire-transfer ",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha",
+    "test:watch": "nodemon --exec mocha",
+    "coverage-report": "npm test && nyc report --reporter=html",
+    "docs": "documentation build index.js -f html -o docs",
+    "standard": "standard",
+    "standard:fix": "standard --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/miroculus/chunks-transfer.git"
+  },
+  "keywords": [
+    "buffer",
+    "string",
+    "chunks",
+    "parts",
+    "transfer",
+    "stream"
+  ],
+  "author": "mjlescano",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/miroculus/chunks-transfer/issues"
+  },
+  "homepage": "https://github.com/miroculus/chunks-transfer#readme",
+  "devDependencies": {
+    "documentation": "9.3.1",
+    "mocha": "6.0.2",
+    "nodemon": "1.18.10",
+    "pre-commit": "1.2.2",
+    "standard": "12.0.1"
+  },
+  "precommit.silent": false,
+  "pre-commit": [
+    "standard"
+  ]
+}
