@@ -1,6 +1,6 @@
 {
   "name": "anaconda-chunks-transfer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Create chunks from a string or buffer for wire-transfer",
   "main": "index.js",
   "scripts": {
