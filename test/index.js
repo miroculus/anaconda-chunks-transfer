@@ -1,4 +1,5 @@
 const { strictEqual, deepStrictEqual } = require('assert')
+const fs = require('fs')
 const { describe, it } = require('mocha')
 const { createChunks, createReceiver } = require('..')
 const createHash = require('../src/create-hash')
@@ -12,6 +13,8 @@ const shuffle = (a) => {
 
   return a
 }
+
+const rand = (min = 0, max) => Math.floor(Math.random() * (max - min + 1) + min)
 
 describe('#createChunks', () => {
   const testCases = [
@@ -62,8 +65,8 @@ describe('#createChunks', () => {
   ]
 
   testCases.forEach(({ content, chunkSize, expected }, i) => {
-    it(`testCase ${i + 1}: should create ${expected.length} chunks with a size of ${chunkSize} bytes`, () => {
-      const chunks = createChunks({
+    it(`testCase ${i + 1}: should create ${expected.length} chunks with a size of ${chunkSize} bytes`, async () => {
+      const chunks = await createChunks({
         content: Buffer.from(content),
         chunkSize
       })
@@ -112,18 +115,18 @@ describe('#createReceiver', () => {
   testCases.forEach(({ chunksData, expected }, i) => {
     const { id, total, chunks } = fixtureChunks(chunksData)
 
-    it(`testCase ${i + 1}: should receive ${total} chunks`, () => {
+    it(`testCase ${i + 1}: should receive ${total} chunks`, async () => {
       const receiver = createReceiver({ id, total })
 
       chunks.forEach(receiver.addChunk)
 
       strictEqual(receiver.done(), true, 'chunks should have been received')
-      strictEqual(receiver.verify(), true, 'receiver should verify result')
-      strictEqual(receiver.toString(), expected, 'result string is ok')
+      strictEqual(await receiver.verify(), true, 'receiver should verify result')
+      strictEqual(await receiver.toString(), expected, 'result string is ok')
     })
   })
 
-  it('should correctly sort result when unordered chunks submitted', () => {
+  it('should correctly sort result when unordered chunks submitted', async () => {
     const chunksData = [
       [240, 159, 152], [131, 240, 159], [144, 135, 240], [159, 144, 180], [58, 33]
     ]
@@ -135,8 +138,8 @@ describe('#createReceiver', () => {
     shuffle(chunks).forEach(receiver.addChunk)
 
     strictEqual(receiver.done(), true, 'chunks should have been received')
-    strictEqual(receiver.verify(), true, 'receiver should verify result')
-    strictEqual(receiver.toString(), expected, 'result string is ok')
+    strictEqual(await receiver.verify(), true, 'receiver should verify result')
+    strictEqual(await receiver.toString(), expected, 'result string is ok')
   })
 })
 
@@ -151,11 +154,9 @@ describe('send and receive operation', () => {
     ',./;[]\\-=<>?:"{}|_+ !@#$%^&*()`~'
   ]
 
-  const rand = (min = 0, max) => Math.floor(Math.random() * (max - min + 1) + min)
-
   testCases.forEach((content, i) => {
-    it(`testCase ${i + 1}: should receive the same that was sent`, () => {
-      const chunks = createChunks({
+    it(`testCase ${i + 1}: should receive the same that was sent`, async () => {
+      const chunks = await createChunks({
         content: Buffer.from(content),
         chunkSize: rand(1, Buffer.byteLength(content))
       })
@@ -166,7 +167,26 @@ describe('send and receive operation', () => {
 
       chunks.forEach(receiver.addChunk)
 
-      strictEqual(receiver.toString(), content, 'result string is ok')
+      strictEqual(await receiver.toString(), content, 'result string is ok')
     })
+  })
+})
+
+describe('data bigger than 860bytes compression', () => {
+  const content = fs.readFileSync(require('path').join(__dirname, 'big-file.data'))
+
+  it('should correctly chunk a big file', async () => {
+    const chunks = await createChunks({
+      content,
+      chunkSize: rand(1, Buffer.byteLength(content))
+    })
+
+    const { id, total } = chunks[0]
+
+    const receiver = createReceiver({ id, total })
+
+    chunks.forEach(receiver.addChunk)
+
+    strictEqual(await receiver.toString(), content.toString(), 'result string is ok')
   })
 })

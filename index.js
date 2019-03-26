@@ -1,6 +1,7 @@
 const createHash = require('./src/create-hash')
 const splitBuffer = require('./src/split-buffer')
 const flatten = require('./src/flatten')
+const zlib = require('./src/zlib')
 
 /**
  * @typedef {object} Chunk
@@ -17,13 +18,14 @@ const flatten = require('./src/flatten')
  * @param {number} options.chunkSize Maximum size in bytes for each chunk.
  * @returns {Chunk[]} An array containing all the chunks objects.
  */
-module.exports.createChunks = ({ content, chunkSize }) => {
+module.exports.createChunks = async ({ content, chunkSize }) => {
   if (!Buffer.isBuffer(content)) {
     throw new Error('options.content must be a buffer')
   }
 
   const id = createHash(content)
-  const chunks = splitBuffer(content, chunkSize)
+  const compressed = await zlib.compress(content)
+  const chunks = splitBuffer(compressed, chunkSize)
   const total = chunks.length
 
   return chunks.map((data, index) => ({
@@ -73,25 +75,29 @@ module.exports.createReceiver = ({ id, total }) => {
     /**
      * @returns {Buffer} the entire content as buffer.
      */
-    toBuffer () {
+    async toBuffer () {
       if (!receiver.done()) throw new Error('Missing chunks to convert to buffer')
       if (buff) return buff
-      return Buffer.from(flatten(chunks))
+      const compressed = Buffer.from(flatten(chunks))
+      buff = await zlib.decompress(compressed)
+      return buff
     },
 
     /**
      * @returns {string} the entire content as string.
      */
-    toString () {
-      return receiver.toBuffer().toString()
+    async toString () {
+      const buff = await receiver.toBuffer()
+      return buff.toString()
     },
 
     /**
      * Verify if the content result correspond to the given id
      * @returns {boolean} the entire content as string.
      */
-    verify () {
-      return id === createHash(receiver.toBuffer())
+    async verify () {
+      const buff = await receiver.toBuffer()
+      return id === createHash(buff)
     }
   }
 
