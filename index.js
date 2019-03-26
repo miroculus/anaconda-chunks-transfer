@@ -76,13 +76,7 @@ module.exports.createReceiver = ({ id, total }) => {
     toBuffer () {
       if (!receiver.done()) throw new Error('Missing chunks to convert to buffer')
       if (buff) return buff
-
-      const values = chunks.reduce((vals, data) => {
-        vals.push(...data)
-        return vals
-      }, [])
-
-      return Buffer.from(values)
+      return Buffer.from(flatten(chunks))
     },
 
     /**
