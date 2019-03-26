@@ -1,6 +1,6 @@
 {
   "name": "@miroculus/anaconda-chunks-transfer",
-  "version": "1.0.2",
+  "version": "2.0.0",
   "description": "Create chunks from a string or buffer for wire-transfer",
   "main": "index.js",
   "scripts": {
