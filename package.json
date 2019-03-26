@@ -1,7 +1,7 @@
 {
-  "name": "chunks-transfer",
+  "name": "anaconda-chunks-transfer",
   "version": "1.0.0",
-  "description": "Create chunks from a string or buffer for wire-transfer ",
+  "description": "Create chunks from a string or buffer for wire-transfer",
   "main": "index.js",
   "scripts": {
     "test": "mocha",
@@ -13,7 +13,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/miroculus/chunks-transfer.git"
+    "url": "git+https://github.com/miroculus/anaconda-chunks-transfer.git"
   },
   "keywords": [
     "buffer",
@@ -26,9 +26,9 @@
   "author": "mjlescano",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/miroculus/chunks-transfer/issues"
+    "url": "https://github.com/miroculus/anaconda-chunks-transfer/issues"
   },
-  "homepage": "https://github.com/miroculus/chunks-transfer#readme",
+  "homepage": "https://github.com/miroculus/anaconda-chunks-transfer#readme",
   "devDependencies": {
     "documentation": "9.3.1",
     "mocha": "6.0.2",
