@@ -13,4 +13,5 @@ RUN npm install
 COPY . ./
 
 RUN npm run standard & npm run test
+
 RUN npx can-npm-publish --verbose & npm publish
