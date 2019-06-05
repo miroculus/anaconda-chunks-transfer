@@ -170,6 +170,24 @@ describe('send and receive operation', () => {
       strictEqual(await receiver.toString(), content, 'result string is ok')
     })
   })
+
+  it(`should send and receive uncompressed content`, async () => {
+    const content = 'Some testing string'
+
+    const chunks = await createChunks({
+      content: Buffer.from(content),
+      chunkSize: rand(1, Buffer.byteLength(content)),
+      compress: false
+    })
+
+    const { id, total } = chunks[0]
+
+    const receiver = createReceiver({ id, total })
+
+    chunks.forEach(receiver.addChunk)
+
+    strictEqual(await receiver.toString(), content, 'result string is ok')
+  })
 })
 
 describe('data bigger than 860bytes compression', () => {
