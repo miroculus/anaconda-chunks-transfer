@@ -18,14 +18,20 @@ const zlib = require('./src/zlib')
  * @param {number} options.chunkSize Maximum size in bytes for each chunk.
  * @returns {Chunk[]} An array containing all the chunks objects.
  */
-module.exports.createChunks = async ({ content, chunkSize }) => {
+module.exports.createChunks = async ({
+  content,
+  chunkSize,
+  compress = true
+}) => {
   if (!Buffer.isBuffer(content)) {
     throw new Error('options.content must be a buffer')
   }
 
   const id = createHash(content)
-  const compressed = await zlib.compress(content)
-  const chunks = splitBuffer(compressed, chunkSize)
+  const payload = compress
+    ? await zlib.compress(content)
+    : content
+  const chunks = splitBuffer(payload, chunkSize)
   const total = chunks.length
 
   return chunks.map((data, index) => ({
