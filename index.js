@@ -94,7 +94,7 @@ exports.createReceiver = ({ id, total }) => {
     async toBuffer () {
       if (!receiver.done()) throw new Error('Missing chunks to convert to buffer')
       if (buff) return buff
-      const compressed = chunks.join('')
+      const compressed = joinString(chunks)
       buff = await zlib.decompress(Buffer.from(compressed))
       return buff
     },
