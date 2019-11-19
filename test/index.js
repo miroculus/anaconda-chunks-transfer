@@ -3,7 +3,6 @@ const fs = require('fs')
 const { describe, it } = require('mocha')
 const { createChunks, createReceiver } = require('..')
 const createHash = require('../src/create-hash')
-const flatten = require('../src/flatten')
 
 const shuffle = (a) => {
   for (let i = a.length - 1; i > 0; i--) {
@@ -14,53 +13,27 @@ const shuffle = (a) => {
   return a
 }
 
-const rand = (min = 0, max) => Math.floor(Math.random() * (max - min + 1) + min)
-
 describe('#createChunks', () => {
   const testCases = [
     {
-      // Even result
-      chunkSize: 2,
+      chunkSize: 4,
       content: 'abcdef',
-      expected: [
-        [97, 98],
-        [99, 100],
-        [101, 102]
-      ]
+      expected: ['abcd', 'ef']
     },
     {
-      // 1-byte chunks
-      chunkSize: 1,
+      chunkSize: 4,
       content: 'abc',
-      expected: [[97], [98], [99]]
+      expected: ['abc']
     },
     {
-      // Odd result
-      chunkSize: 2,
+      chunkSize: 16,
       content: 'abcde',
-      expected: [
-        [97, 98],
-        [99, 100],
-        [101]
-      ]
+      expected: ['abcde']
     },
     {
-      // Empty result
-      chunkSize: 3,
-      content: '',
-      expected: [[]]
-    },
-    {
-      // Bigger chunkSize than content
-      chunkSize: 15,
-      content: 'abcde',
-      expected: [[97, 98, 99, 100, 101]]
-    },
-    {
-      // Even result
-      chunkSize: 3,
+      chunkSize: 4,
       content: '😃🐇🐴:!',
-      expected: [[240, 159, 152], [131, 240, 159], [144, 135, 240], [159, 144, 180], [58, 33]]
+      expected: ['😃', '🐇', '🐴', ':!']
     }
   ]
 
@@ -85,22 +58,16 @@ describe('#createChunks', () => {
 
 describe('#createReceiver', () => {
   const testCases = [
-    { chunksData: [[97, 98], [99, 100], [101, 102]], expected: 'abcdef' },
-    { chunksData: [[97], [98], [99]], expected: 'abc' },
-    { chunksData: [[97, 98], [99, 100], [101]], expected: 'abcde' },
-    { chunksData: [[]], expected: '' },
-    { chunksData: [[97, 98, 99, 100, 101]], expected: 'abcde' },
-    {
-      chunksData: [
-        [240, 159, 152], [131, 240, 159], [144, 135, 240], [159, 144, 180], [58, 33]
-      ],
-      expected: '😃🐇🐴:!'
-    }
+    { chunksData: ['abcd', 'ef'], expected: 'abcdef' },
+    { chunksData: ['abc'], expected: 'abc' },
+    { chunksData: ['abcd', 'abcd', 'abcd'], expected: 'abcdabcdabcd' },
+    { chunksData: [''], expected: '' },
+    { chunksData: ['😃', '🐇', '🐴', ':!'], expected: '😃🐇🐴:!' }
   ]
 
   const fixtureChunks = (chunksData) => {
-    const buff = Buffer.from(flatten(chunksData))
-    const id = createHash(buff)
+    const content = Buffer.from(chunksData.join(''))
+    const id = createHash(content)
     const total = chunksData.length
     const chunks = chunksData.map((data, index) => ({
       id,
@@ -109,7 +76,7 @@ describe('#createReceiver', () => {
       data
     }))
 
-    return { buff, id, total, chunks }
+    return { id, total, chunks }
   }
 
   testCases.forEach(({ chunksData, expected }, i) => {
@@ -127,9 +94,7 @@ describe('#createReceiver', () => {
   })
 
   it('should correctly sort result when unordered chunks submitted', async () => {
-    const chunksData = [
-      [240, 159, 152], [131, 240, 159], [144, 135, 240], [159, 144, 180], [58, 33]
-    ]
+    const chunksData = ['😃', '🐇', '🐴', ':!']
     const expected = '😃🐇🐴:!'
     const { id, total, chunks } = fixtureChunks(chunksData)
 
@@ -145,20 +110,20 @@ describe('#createReceiver', () => {
 
 describe('send and receive operation', () => {
   const testCases = [
-    'åß∂ƒ©˙∆˚¬…æ',
-    'ЁЂЃЄЅІЇЈЉЊЋЌЍЎЏАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя',
-    '<foo val=“bar” />',
-    '찦차를 타고 온 펲시맨과 쑛다리 똠방각하',
-    'Ṱ̺̺̕o͞ ̷i̲̬͇̪͙n̝̗͕v̟̜̘̦͟o̶̙̰̠kè͚̮̺̪̹̱̤ ̖t̝͕̳̣̻̪͞h̼͓̲̦̳̘̲e͇̣̰̦̬͎ ̢̼̻̱̘h͚͎͙̜̣̲ͅi̦̲̣̰̤v̻͍e̺̭̳̪̰-m̢iͅn̖̺̞̲̯̰d̵̼̟͙̩̼̘̳ ̞̥̱̳̭r̛̗̘e͙p͠r̼̞̻̭̗e̺̠̣͟s̘͇̳͍̝͉e͉̥̯̞̲͚̬͜ǹ̬͎͎̟̖͇̤t͍̬̤͓̼̭͘ͅi̪̱n͠g̴͉ ͏͉ͅc̬̟h͡a̫̻̯͘o̫̟̖͍̙̝͉s̗̦̲.̨̹͈̣',
-    'Craig Cockburn, Software Specialist',
-    ',./;[]\\-=<>?:"{}|_+ !@#$%^&*()`~'
+    { content: 'åß∂ƒ©˙∆˚¬…æ', chunkSize: 4 },
+    { content: 'ЁЂЃЄЅІЇЈЉЊЋЌЍЎЏАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя', chunkSize: 16 },
+    { content: '<foo val=“bar” />', chunkSize: 4 },
+    { content: '찦차를 타고 온 펲시맨과 쑛다리 똠방각하', chunkSize: 4 },
+    { content: 'Ṱ̺̺̕o͞ ̷i̲̬͇̪͙n̝̗͕v̟̜̘̦͟o̶̙̰̠kè͚̮̺̪̹̱̤ ̖t̝͕̳̣̻̪͞h̼͓̲̦̳̘̲e͇̣̰̦̬͎ ̢̼̻̱̘h͚͎͙̜̣̲ͅi̦̲̣̰̤v̻͍e̺̭̳̪̰-m̢iͅn̖̺̞̲̯̰d̵̼̟͙̩̼̘̳ ̞̥̱̳̭r̛̗̘e͙p͠r̼̞̻̭̗e̺̠̣͟s̘͇̳͍̝͉e͉̥̯̞̲͚̬͜ǹ̬͎͎̟̖͇̤t͍̬̤͓̼̭͘ͅi̪̱n͠g̴͉ ͏͉ͅc̬̟h͡a̫̻̯͘o̫̟̖͍̙̝͉s̗̦̲.̨̹͈̣', chunkSize: 4 },
+    { content: 'Craig Cockburn, Software Specialist', chunkSize: 8 },
+    { content: ',./;[]\\-=<>?:"{}|_+ !@#$%^&*()`~', chunkSize: 4 }
   ]
 
-  testCases.forEach((content, i) => {
+  testCases.forEach(({ content, chunkSize }, i) => {
     it(`testCase ${i + 1}: should receive the same that was sent`, async () => {
       const chunks = await createChunks({
         content: Buffer.from(content),
-        chunkSize: rand(1, Buffer.byteLength(content))
+        chunkSize
       })
 
       const { id, total } = chunks[0]
@@ -176,7 +141,7 @@ describe('send and receive operation', () => {
 
     const chunks = await createChunks({
       content: Buffer.from(content),
-      chunkSize: rand(1, Buffer.byteLength(content)),
+      chunkSize: 4,
       compress: false
     })
 
@@ -190,13 +155,13 @@ describe('send and receive operation', () => {
   })
 })
 
-describe('data bigger than 860bytes compression', () => {
+describe.skip('data bigger than 860bytes compression', () => {
   const content = fs.readFileSync(require('path').join(__dirname, 'big-file.data'))
 
   it('should correctly chunk a big file', async () => {
     const chunks = await createChunks({
       content,
-      chunkSize: rand(1, Buffer.byteLength(content))
+      chunkSize: 30000
     })
 
     const { id, total } = chunks[0]
@@ -205,6 +170,12 @@ describe('data bigger than 860bytes compression', () => {
 
     chunks.forEach(receiver.addChunk)
 
-    strictEqual(await receiver.toString(), content.toString(), 'result string is ok')
+    const result = await receiver.toString()
+
+    if (result !== content.toString()) {
+      throw new Error('Result is not equal')
+    }
+
+    // strictEqual(result, content.toString(), 'result string is ok')
   })
 })

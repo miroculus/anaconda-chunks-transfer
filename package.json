@@ -4,8 +4,8 @@
   "description": "Create chunks from a string or buffer for wire-transfer",
   "main": "index.js",
   "scripts": {
-    "test": "mocha",
-    "test:watch": "nodemon --exec mocha",
+    "test": "mocha test/*.js test/**/*.js",
+    "test:watch": "nodemon --exec npm run test",
     "coverage-report": "npm test && nyc report --reporter=html",
     "docs": "documentation build index.js -f html -o docs",
     "standard": "standard",
@@ -39,5 +39,6 @@
   "precommit.silent": false,
   "pre-commit": [
     "standard"
-  ]
+  ],
+  "dependencies": {}
 }
