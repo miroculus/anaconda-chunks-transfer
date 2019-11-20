@@ -1,11 +1,13 @@
 /**
  * Split the given string on chunks of a maximum amount of bytes each
- * @param {string} str to divide in chunks
+ * @param {Buffer} buffer to divide in chunks
  * @param {number} maxBytesPerChunk maximum size in bytes a chunk can have
  * @returns {string[]} serialized string of the buffer
  */
-exports.splitString = function splitString (str, maxBytesPerChunk) {
-  if (typeof str !== 'string') throw new Error('Given data must be a string')
+exports.split = function split (buffer, maxBytesPerChunk) {
+  if (!Buffer.isBuffer(buffer)) throw new Error('Given data must be a buffer')
+
+  const str = buffer.toString('base64')
 
   if (
     !Number.isSafeInteger(maxBytesPerChunk) ||
@@ -39,9 +41,9 @@ exports.splitString = function splitString (str, maxBytesPerChunk) {
 /**
  * Join splitted string
  * @param {string[]} chunks to be joined together (previously splitted with splitString)
- * @returns {string}
+ * @returns {Buffer}
  */
-exports.joinString = function joinString (chunks) {
+exports.join = function join (chunks) {
   if (!Array.isArray(chunks)) throw new Error('Given data must be an array')
-  return chunks.join('')
+  return Buffer.from(chunks.join(''), 'base64')
 }

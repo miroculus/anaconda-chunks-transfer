@@ -8,6 +8,7 @@ const gzip = promisify(zlib.gzip)
 const gunzip = promisify(zlib.gunzip)
 
 /**
+ * Check if the given buffer is compressed
  * @param {Buffer} buffer
  * @returns {boolean}
  */

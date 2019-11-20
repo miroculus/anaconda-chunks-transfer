@@ -1,39 +1,31 @@
 const { strictEqual, deepStrictEqual } = require('assert')
 const fs = require('fs')
+const path = require('path')
 const { describe, it } = require('mocha')
 const { createChunks, createReceiver } = require('..')
 const createHash = require('../src/create-hash')
-
-const shuffle = (a) => {
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]]
-  }
-
-  return a
-}
 
 describe('#createChunks', () => {
   const testCases = [
     {
       chunkSize: 4,
       content: 'abcdef',
-      expected: ['abcd', 'ef']
+      expected: ['YWJj', 'ZGVm']
     },
     {
       chunkSize: 4,
       content: 'abc',
-      expected: ['abc']
+      expected: ['YWJj']
     },
     {
       chunkSize: 16,
       content: 'abcde',
-      expected: ['abcde']
+      expected: ['YWJjZGU=']
     },
     {
       chunkSize: 4,
       content: '😃🐇🐴:!',
-      expected: ['😃', '🐇', '🐴', ':!']
+      expected: ['8J+Y', 'g/Cf', 'kIfw', 'n5C0', 'OiE=']
     }
   ]
 
@@ -48,9 +40,9 @@ describe('#createChunks', () => {
 
       expected.forEach((data, index) => {
         const chunk = chunks[index]
-        strictEqual(chunk.total, expected.length, 'chunk.total value')
-        strictEqual(chunk.index, index, 'chunk.index value')
         deepStrictEqual(chunk.data, data)
+        strictEqual(chunk.index, index, 'chunk.index value')
+        strictEqual(chunk.total, expected.length, 'chunk.total value')
       })
     })
   })
@@ -58,11 +50,10 @@ describe('#createChunks', () => {
 
 describe('#createReceiver', () => {
   const testCases = [
-    { chunksData: ['abcd', 'ef'], expected: 'abcdef' },
-    { chunksData: ['abc'], expected: 'abc' },
-    { chunksData: ['abcd', 'abcd', 'abcd'], expected: 'abcdabcdabcd' },
+    { chunksData: ['YWJj', 'ZGVm'], expected: 'abcdef' },
+    { chunksData: ['YWJj'], expected: 'abc' },
     { chunksData: [''], expected: '' },
-    { chunksData: ['😃', '🐇', '🐴', ':!'], expected: '😃🐇🐴:!' }
+    { chunksData: ['8J+Y', 'g/Cf', 'kIfw', 'n5C0', 'OiE='], expected: '😃🐇🐴:!' }
   ]
 
   const fixtureChunks = (chunksData) => {
@@ -87,23 +78,25 @@ describe('#createReceiver', () => {
 
       chunks.forEach(receiver.addChunk)
 
-      strictEqual(receiver.done(), true, 'chunks should have been received')
-      strictEqual(await receiver.verify(), true, 'receiver should verify result')
       strictEqual(await receiver.toString(), expected, 'result string is ok')
+      strictEqual(receiver.done(), true, 'chunks should have been received')
     })
   })
 
   it('should correctly sort result when unordered chunks submitted', async () => {
-    const chunksData = ['😃', '🐇', '🐴', ':!']
+    const chunksData = ['8J+Y', 'g/Cf', 'kIfw', 'n5C0', 'OiE=']
     const expected = '😃🐇🐴:!'
     const { id, total, chunks } = fixtureChunks(chunksData)
 
     const receiver = createReceiver({ id, total })
 
-    shuffle(chunks).forEach(receiver.addChunk)
+    receiver.addChunk(chunks[2])
+    receiver.addChunk(chunks[3])
+    receiver.addChunk(chunks[1])
+    receiver.addChunk(chunks[0])
+    receiver.addChunk(chunks[4])
 
     strictEqual(receiver.done(), true, 'chunks should have been received')
-    strictEqual(await receiver.verify(), true, 'receiver should verify result')
     strictEqual(await receiver.toString(), expected, 'result string is ok')
   })
 })
@@ -155,13 +148,13 @@ describe('send and receive operation', () => {
   })
 })
 
-describe.skip('data bigger than 860bytes compression', () => {
-  const content = fs.readFileSync(require('path').join(__dirname, 'big-file.data'))
+describe('data bigger than 860bytes compression', () => {
+  const content = fs.readFileSync(path.join(__dirname, 'big-file.data'))
 
   it('should correctly chunk a big file', async () => {
     const chunks = await createChunks({
       content,
-      chunkSize: 30000
+      chunkSize: 300
     })
 
     const { id, total } = chunks[0]
@@ -170,12 +163,11 @@ describe.skip('data bigger than 860bytes compression', () => {
 
     chunks.forEach(receiver.addChunk)
 
+    const expected = content.toString()
     const result = await receiver.toString()
 
-    if (result !== content.toString()) {
+    if (result !== expected) {
       throw new Error('Result is not equal')
     }
-
-    // strictEqual(result, content.toString(), 'result string is ok')
   })
 })

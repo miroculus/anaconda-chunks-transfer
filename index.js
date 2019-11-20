@@ -1,5 +1,5 @@
 const createHash = require('./src/create-hash')
-const { splitString, joinString } = require('./src/str')
+const chunker = require('./src/chunker')
 const zlib = require('./src/zlib')
 
 /**
@@ -31,7 +31,7 @@ exports.createChunks = async ({
   const compressed = compress
     ? await zlib.compress(content)
     : content
-  const chunks = splitString(compressed.toString(), chunkSize)
+  const chunks = chunker.split(compressed, chunkSize)
   const total = chunks.length
 
   const result = chunks.map((data, index) => ({
@@ -94,8 +94,8 @@ exports.createReceiver = ({ id, total }) => {
     async toBuffer () {
       if (!receiver.done()) throw new Error('Missing chunks to convert to buffer')
       if (buff) return buff
-      const compressed = joinString(chunks)
-      buff = await zlib.decompress(Buffer.from(compressed))
+      const compressed = chunker.join(chunks)
+      buff = await zlib.decompress(compressed)
       return buff
     },
 
@@ -106,15 +106,6 @@ exports.createReceiver = ({ id, total }) => {
     async toString () {
       const buff = await receiver.toBuffer()
       return buff.toString()
-    },
-
-    /**
-     * Verify if the content result correspond to the given id
-     * @returns {Promise<boolean>}
-     */
-    async verify () {
-      const buff = await receiver.toBuffer()
-      return id === createHash(buff)
     }
   }
 
