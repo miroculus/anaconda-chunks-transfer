@@ -1,6 +1,5 @@
 const createHash = require('./src/create-hash')
-const splitBuffer = require('./src/split-buffer')
-const flatten = require('./src/flatten')
+const chunker = require('./src/chunker')
 const zlib = require('./src/zlib')
 
 /**
@@ -8,7 +7,7 @@ const zlib = require('./src/zlib')
  * @property {string} id Id of the entire data this chunk is part of.
  * @property {number} total Total amounts of chunks for the entire data.
  * @property {number} index Number of this chunk for the entire data.
- * @property {array} data Stringified array using JSON.stringfy of the buffer part for this chunk.
+ * @property {string} data Stringified array using JSON.stringfy of the buffer part for this chunk.
  */
 
 /**
@@ -16,9 +15,10 @@ const zlib = require('./src/zlib')
  * @param {object} options
  * @param {Buffer} options.content Content that needs to be chunked.
  * @param {number} options.chunkSize Maximum size in bytes for each chunk.
- * @returns {Chunk[]} An array containing all the chunks objects.
+ * @param {boolean} [options.compress=true] If the content should be compressed using gzip
+ * @returns {Promise<Chunk[]>} An array containing all the chunks objects.
  */
-module.exports.createChunks = async ({
+exports.createChunks = async ({
   content,
   chunkSize,
   compress = true
@@ -28,25 +28,29 @@ module.exports.createChunks = async ({
   }
 
   const id = createHash(content)
-  const payload = compress
+  const compressed = compress
     ? await zlib.compress(content)
     : content
-  const chunks = splitBuffer(payload, chunkSize)
+  const chunks = chunker.split(compressed, chunkSize)
   const total = chunks.length
 
-  return chunks.map((data, index) => ({
+  const result = chunks.map((data, index) => ({
     id,
     total,
     index,
-    data: Array.from(data)
+    data
   }))
+
+  return result
 }
 
 /**
  * Create a ChunksReader object from a String or a Buffer
- * @param {string} id ChunksTransfer id of the object you are going to receive.
+ * @param {object} chunk
+ * @param {string} chunk.id ChunksTransfer id of the object you are going to receive.
+ * @param {number} chunk.total Total needed chunks to complete the object
  */
-module.exports.createReceiver = ({ id, total }) => {
+exports.createReceiver = ({ id, total }) => {
   const chunks = []
   let received = 0
   let buff
@@ -56,8 +60,13 @@ module.exports.createReceiver = ({ id, total }) => {
   }
 
   const receiver = {
-    /** @member {boolean} If the content was completely received */
-    done: () => received >= total,
+    /**
+     * Returns true if the content was completely received
+     * @returns {boolean}
+     */
+    done () {
+      return received === total
+    },
 
     /**
      * @param {Chunk} chunk Received item chunk to add to the final data.
@@ -79,31 +88,24 @@ module.exports.createReceiver = ({ id, total }) => {
     },
 
     /**
-     * @returns {Buffer} the entire content as buffer.
+     * If the receiver has all the pieces, it will unite them and decompress it.
+     * @returns {Promise<Buffer>} the entire content as buffer.
      */
     async toBuffer () {
       if (!receiver.done()) throw new Error('Missing chunks to convert to buffer')
       if (buff) return buff
-      const compressed = Buffer.from(flatten(chunks))
+      const compressed = chunker.join(chunks)
       buff = await zlib.decompress(compressed)
       return buff
     },
 
     /**
-     * @returns {string} the entire content as string.
+     * Returns the complete buffer as string
+     * @returns {Promise<string>}
      */
     async toString () {
       const buff = await receiver.toBuffer()
       return buff.toString()
-    },
-
-    /**
-     * Verify if the content result correspond to the given id
-     * @returns {boolean} the entire content as string.
-     */
-    async verify () {
-      const buff = await receiver.toBuffer()
-      return id === createHash(buff)
     }
   }
 
