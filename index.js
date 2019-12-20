@@ -1,3 +1,4 @@
+const EventEmitter = require('events')
 const createHash = require('./src/create-hash')
 const chunker = require('./src/chunker')
 const zlib = require('./src/zlib')
@@ -11,7 +12,7 @@ const zlib = require('./src/zlib')
  */
 
 /**
- * Create a ChunksTransfer object from a String or a Buffer
+ * Create an array of Chunk objects from from the given String or Buffer
  * @param {object} options
  * @param {Buffer} options.content Content that needs to be chunked.
  * @param {number} options.chunkSize Maximum size in bytes for each chunk.
@@ -45,69 +46,88 @@ exports.createChunks = async ({
 }
 
 /**
- * Create a ChunksReader object from a String or a Buffer
- * @param {object} chunk
- * @param {string} chunk.id ChunksTransfer id of the object you are going to receive.
- * @param {number} chunk.total Total needed chunks to complete the object
+ * Joins the given array of Chunk objects into a string.
+ * @param {Chunk[]} chunks array of chnks generated using the createChunks fn
+ * @returns {Promise<string>}
  */
-exports.createReceiver = ({ id, total }) => {
-  const chunks = []
-  let received = 0
-  let buff
-
-  if (!Number.isSafeInteger(total) || total <= 0) {
-    throw new Error('Invalid total value')
+exports.joinChunks = async (chunks) => {
+  if (!Array.isArray(chunks) || chunks.length === 0) {
+    throw new Error('Invalid chunks param')
   }
 
-  const receiver = {
-    /**
-     * Returns true if the content was completely received
-     * @returns {boolean}
-     */
-    done () {
-      return received === total
-    },
+  const compressed = chunker.join(chunks.map((chunk) => chunk.data))
+  const buff = await zlib.decompress(compressed)
 
-    /**
-     * @param {Chunk} chunk Received item chunk to add to the final data.
-     */
-    addChunk (chunk) {
-      if (receiver.done()) throw new Error('All chunks already received')
-      if (!chunk) throw new Error('Missing chunk to add')
-      if (chunk.id !== id) throw new Error(`Invalid id ${chunk.id} given on chunk receiver with id ${id}`)
+  return buff.toString()
+}
 
-      if (!Number.isSafeInteger(chunk.index) || chunk.index < 0 || chunk.index >= total) {
-        throw new Error('Invalid chunk.index value')
+/**
+ * @typedef {object} ChunksReceiver
+ * @property {function} addChunk
+ */
+
+/**
+ * Create a ChunksReader object from a String or a Buffer
+ * @param {object} [options]
+ * @param {number} [options.timeout=60000] Milliseconds before emitting a TIMEOUT error
+ * @returns {EventEmitter & ChunksReceiver}
+ */
+exports.createReceiver = ({ timeout = 60000 } = {}) => {
+  const receivers = new Map()
+
+  const chunksReceiver = new EventEmitter()
+
+  /**
+   * @param {Chunk} chunk Received item chunk to add to the final data.
+   */
+  chunksReceiver.addChunk = async (chunk) => {
+    if (!chunk) throw new Error('Missing chunk to add')
+
+    const { id, total } = chunk
+
+    if (!receivers.has(id)) {
+      const receiver = {
+        total,
+        received: 0,
+        chunks: [],
+        timeoutId: setTimeout(() => {
+          receivers.delete(id)
+
+          const err = new Error(`Timeout when receiving chunks "${id}"`)
+          chunksReceiver.emit('error', err)
+        }, timeout)
       }
 
-      chunks[chunk.index] = chunk.data
+      receivers.set(id, receiver)
+    }
 
-      received++
+    const receiver = receivers.get(id)
 
-      return receiver
-    },
+    if (receiver.total <= receiver.received) {
+      throw new Error('All chunks already received')
+    }
 
-    /**
-     * If the receiver has all the pieces, it will unite them and decompress it.
-     * @returns {Promise<Buffer>} the entire content as buffer.
-     */
-    async toBuffer () {
-      if (!receiver.done()) throw new Error('Missing chunks to convert to buffer')
-      if (buff) return buff
-      const compressed = chunker.join(chunks)
-      buff = await zlib.decompress(compressed)
-      return buff
-    },
+    if (!Number.isSafeInteger(chunk.index) || chunk.index < 0 || chunk.index >= total) {
+      throw new Error('Invalid chunk.index value')
+    }
 
-    /**
-     * Returns the complete buffer as string
-     * @returns {Promise<string>}
-     */
-    async toString () {
-      const buff = await receiver.toBuffer()
-      return buff.toString()
+    receiver.chunks[chunk.index] = chunk
+
+    receiver.received++
+
+    // The message has been completely received
+    if (receiver.total === receiver.received) {
+      clearTimeout(receiver.timeoutId)
+      receivers.delete(id)
+
+      try {
+        const result = await exports.joinChunks(receiver.chunks)
+        chunksReceiver.emit('message', result)
+      } catch (err) {
+        chunksReceiver.emit('error', err)
+      }
     }
   }
 
-  return receiver
+  return chunksReceiver
 }
