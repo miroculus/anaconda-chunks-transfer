@@ -31,7 +31,7 @@
   "homepage": "https://github.com/miroculus/anaconda-chunks-transfer#readme",
   "devDependencies": {
     "documentation": "9.3.1",
-    "mocha": "6.0.2",
+    "mocha": "10.2.0",
     "nodemon": "1.18.10",
     "pre-commit": "1.2.2",
     "standard": "12.0.1"
